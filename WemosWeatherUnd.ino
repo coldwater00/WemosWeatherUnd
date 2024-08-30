@@ -8,21 +8,7 @@
 
 SHT3X sht30(SHT30_ADDRESS);
 
-uint SLEEP_TYPE = 1;  //0=no sleep; 1=//model sleep ;2=// Light sleep ( 4 ma ); 3 = //deep sleep
-
-void setupwifi() {
-  if (WiFi.status() == WL_CONNECTED) {
-    Serial.println("WiFi.disconnect");
-    WiFi.disconnect();
-  }
-  WiFi.setAutoReconnect(false);
-  WiFi.mode(WIFI_OFF);  //Prevents reconnection issue (taking too long to connect)
-  Serial.println("WIFI_OFF");
-  delay(1000);
-  WiFi.mode(WIFI_STA);
-  Serial.println("WIFI_STA");
-  Serial.println(String("") + "wifi mode:" + WiFi.getMode());
-}
+uint SLEEP_TYPE = 2;  //0=no sleep; 1=//model sleep ;2=// Light sleep ( 4 ma ); 3 = //deep sleep
 
 void setup() {
   Serial.begin(115200);
@@ -38,6 +24,21 @@ void setup() {
   // Serial.println("\nWiFi connected");
   setupwifi();
 }
+
+void setupwifi() {
+  if (WiFi.status() == WL_CONNECTED) {
+    Serial.println("WiFi.disconnect");
+    WiFi.disconnect();
+  }
+  WiFi.setAutoReconnect(false);
+  WiFi.mode(WIFI_OFF);  //Prevents reconnection issue (taking too long to connect)
+  Serial.println("WIFI_OFF");
+  delay(1000);
+  WiFi.mode(WIFI_STA);
+  Serial.println("WIFI_STA");
+  Serial.println(String("") + "wifi mode:" + WiFi.getMode());
+}
+
 
 void connectToWifi() {
   // Connect or reconnect to WiFi
@@ -65,9 +66,12 @@ void loop() {
   connectToWifi();
   if(sht30.get() == 0){
     float temperature = sht30.cTemp;
+
     float humidity = sht30.humidity;
 
     Serial.printf("Temperature: %.2f°C, Humidity: %.2f%%\n", temperature, humidity);
+    temperature=temperature*CORRECTION;
+    Serial.printf("Mod. Temperature: %.2f°C, Humidity: %.2f%%\n", temperature, humidity);
     //sendToWunderground(temperature, humidity);
     sendToWeatherUnderground(temperature, humidity);
   } else {
@@ -78,7 +82,7 @@ void loop() {
   Serial.printf("Going to deep sleep for %d seconds...\n", SLEEP_DURATION);
   //ESP.deepSleep(SLEEP_DURATION * 1e6); // Converti secondi in microsecondi
   //delay(5000);
-  sleep(15);
+  sleep(SLEEP_DURATION);
   wakeUp();
 }
 
@@ -112,53 +116,66 @@ void sendToWeatherUnderground(float temperature, float humidity) {
 
 
 
-
 void callback() {
   Serial1.println("Callback");
   Serial.flush();
 }
 
 //sleep and wait
-void sleep(uint32_t sleep_time_in_minute) {
+void sleep(uint32_t sleep_time) {
 
-  Serial.println(String()+"Slepping for "+sleep_time_in_minute+" minute...");
+  Serial.println(String()+"Slepping for "+sleep_time+" seconds...");
   Serial.flush();
   delay(100);
 
   switch (SLEEP_TYPE) {
     case 0:  // no sleep
       // statements
-      delay(1000 * sleep_time_in_minute);
+      Serial.println("no sleep");
+      delay(1000 * sleep_time);
       break;
     case 1:  //model sleep
       //model sleep ( 18 ma )
+      Serial.println("model sleep");
       WiFi.forceSleepBegin();
       delay(1);
-      delay(1000 * sleep_time_in_minute);
+      delay(1000 * sleep_time);
       break;
     case 2:  // Light sleep ( 4 ma )
+      Serial.println("Light sleep");
       WiFi.disconnect();
+      // wifi_set_opmode(NULL_MODE);
+      // wifi_fpm_set_sleep_type(LIGHT_SLEEP_T);
+      // wifi_fpm_open();
+      // wifi_fpm_set_wakeup_cb(callback);
+      // for (int i = 0; i < sleep_time; i++) {
+      //   wifi_fpm_do_sleep(10000);
+      //   delay(1000 + 1);
+      // }
+
       wifi_set_opmode(NULL_MODE);
       wifi_fpm_set_sleep_type(LIGHT_SLEEP_T);
       wifi_fpm_open();
       wifi_fpm_set_wakeup_cb(callback);
-      for (int i = 0; i < sleep_time_in_minute; i++) {
-        wifi_fpm_do_sleep(60000000);
-        delay(60000 + 1);
-      }
+      wifi_fpm_do_sleep(sleep_time*1000 *1000 );
+      delay(sleep_time*1000 + 1);
+
       break;
-    case 3:  //deep sleep
+    case 3:  //deep sleep + HW connection
+      Serial.println("deep sleepp");
       //Deep Sleep ( ) + reset cable
-      ESP.deepSleep(sleep_time_in_minute * 1000000);
+      ESP.deepSleep(sleep_time * 1000);
       break;
     default:
-      delay(60000 * sleep_time_in_minute);
+      delay(10000 * sleep_time);
   }
  
   Serial.println("SleppeD....");
 }
 
 void wakeUp() {
+  int num=0;
+  int max=10;
   Serial.println("wakeUp");
                 //---
   switch (SLEEP_TYPE) {
@@ -171,6 +188,8 @@ void wakeUp() {
       while (!WiFi.isConnected()) {
         Serial.println("Wait connection....");
         delay(2000);
+        if(num++>max)
+          ESP.restart();
       }
       break;
     case 2:  // Light sleep ( 4 ma )
