@@ -19,4 +19,8 @@
 // Deep sleep duration (in seconds)
 #define SLEEP_DURATION 600
 
+// Temp Corretion %
+#define CORRECTION 0.92
+
+
 #endif // CONFIG_PROPERTIES_H
