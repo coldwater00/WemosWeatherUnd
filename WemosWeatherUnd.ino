@@ -8,10 +8,10 @@
 
 SHT3X sht30(SHT30_ADDRESS);
 
-uint SLEEP_TYPE = 2;  //0=no sleep; 1=//model sleep ;2=// Light sleep ( 4 ma ); 3 = //deep sleep
+uint SLEEP_TYPE = 3;  //0=no sleep; 1=//model sleep ;2=// Light sleep ( 4 ma ); 3 = //deep sleep
 
 void setup() {
-  Serial.begin(115200);
+  Serial.begin(19200);
   
   Serial.println("Initializing SHT30 sensor...");
   
@@ -162,12 +162,13 @@ void sleep(uint32_t sleep_time) {
 
       break;
     case 3:  //deep sleep + HW connection
-      Serial.println("deep sleepp");
+      Serial.println("deep sleep");
       //Deep Sleep ( ) + reset cable
-      ESP.deepSleep(sleep_time * 1000);
+      ESP.deepSleep(sleep_time * 1000000);
       break;
     default:
-      delay(10000 * sleep_time);
+      delay(1000 * sleep_time);
+      break;
   }
  
   Serial.println("SleppeD....");
